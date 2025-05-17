@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "672811391100",
+    "project_id": "messanger-c0432",
+    "storage_bucket": "messanger-c0432.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:672811391100:android:9c8209e400efe65723d1f9",
+        "android_client_info": {
+          "package_name": "com.noureddine.kotlin2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQiqOpRELjsXos9783K_0SDNk-tsNN10g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
