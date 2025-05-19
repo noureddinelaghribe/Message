@@ -16,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.imageview.ShapeableImageView
@@ -36,6 +37,7 @@ import com.noureddine.kotlin2.model.FriendRequest
 import com.noureddine.kotlin2.model.Notification
 import com.noureddine.kotlin2.model.User
 import com.noureddine.kotlin2.R
+import com.noureddine.kotlin2.ViewModel.MyViewModel
 import com.noureddine.kotlin2.model.Conversation
 import com.noureddine.kotlin2.model.Message
 import com.noureddine.kotlin2.utel.NotificationManagerMessage
@@ -63,6 +65,7 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
     var listFriend: MutableList<FriendRequest> = mutableListOf()
     var listAllUsers: MutableList<User> = mutableListOf()
 
+    lateinit var viewModel: MyViewModel
 
 
     @SuppressLint("MissingInflatedId")
@@ -92,6 +95,8 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
 
         adapterMessanger = AdapterMessanger()
         recyclerView.adapter = adapterMessanger
+
+        viewModel = ViewModelProvider(this).get(MyViewModel::class.java)
 
 
         //load current user
@@ -331,6 +336,7 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
                         if (!user.uid.toString().equals(auth.uid.toString())){
                             if (listFriend.any { it.receiverId == user.uid || it.senderId == user.uid}){
                                 listMessages.add(user)
+                                viewModel.insertUser(user)
                             }
                         }
                     }
@@ -353,6 +359,7 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
                     if (conv?.participants?.contains(currentUser.uid.toString()) == true){
                         conv?.let {
                             allConvs.add(it)
+                            viewModel.insertConversation(it)
                             if(!it.notify){
                                 val other = it.participants.first { it != currentUser.uid.toString() }
                                 val sortedMessages: MutableList<Message> = it.messages.values.toMutableList()

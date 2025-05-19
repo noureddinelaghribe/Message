@@ -1,4 +1,4 @@
-package com.noureddine.kotlin2.Model
+package com.noureddine.kotlin2.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

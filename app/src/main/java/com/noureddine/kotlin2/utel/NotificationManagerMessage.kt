@@ -28,11 +28,13 @@ class NotificationManagerMessage(private val notificationId: Int, private val my
         lateinit var notificationLayout: RemoteViews
         lateinit var mainNotification: Notification
         lateinit var onClickFriendListener: OnClickFriendListener
+        var NOTIFICATION_ID: Int = 0
     }
 
     init {
         // قم بتهيئة المتغير الثابت في دالة المنشئ
         onClickFriendListener = myOnClickFriendListener
+        Companion.NOTIFICATION_ID = notificationId
     }
 
     private val NOTIFICATION_ID = 4554 //notificationId

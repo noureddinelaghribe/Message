@@ -1,4 +1,4 @@
-package com.noureddine.kotlin2.Model
+package com.noureddine.kotlin2.model
 
 import android.os.Parcel
 import android.os.Parcelable

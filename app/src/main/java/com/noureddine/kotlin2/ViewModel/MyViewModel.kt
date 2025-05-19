@@ -27,6 +27,6 @@ class MyViewModel(application: Application): AndroidViewModel(application) {
 
     fun insertUser(user: User) = viewModelScope.launch (Dispatchers.IO){ repository.insertUser(user) }
 
-    fun insertConversation(user: User) = viewModelScope.launch (Dispatchers.IO){ repository.insertUser(user) }
+    fun insertConversation(conversation: Conversation) = viewModelScope.launch (Dispatchers.IO){ repository.insertConversation(conversation) }
 
 }
