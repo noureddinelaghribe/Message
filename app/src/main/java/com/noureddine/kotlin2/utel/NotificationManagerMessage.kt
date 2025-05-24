@@ -37,7 +37,7 @@ class NotificationManagerMessage(private val notificationId: Int, private val my
         Companion.NOTIFICATION_ID = notificationId
     }
 
-    private val NOTIFICATION_ID = 4554 //notificationId
+    private val NOTIFICATION_ID = notificationId
 
     @SuppressLint("RemoteViewLayout")
     fun createCustomNotification(context: Context, notification: Notification) {

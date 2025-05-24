@@ -22,9 +22,11 @@ import com.google.android.material.button.MaterialButton
 import com.noureddine.kotlin2.model.FriendRequest
 import com.noureddine.kotlin2.activity.ChatActivity
 import com.noureddine.kotlin2.model.Conversation
+import com.noureddine.kotlin2.model.User_db
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.collections.forEachIndexed
+import kotlin.text.get
 
 class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 //private val idCurrentUser: String, private val listMessages: List<User>, private val allConvs: List<Conversation>, val listFriend: MutableList<FriendRequest> , private val context: Context, private val onClickRequestFriendListener: OnClickRequestFriendListener
@@ -38,8 +40,11 @@ class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         private var allConvs: List<Conversation> = mutableListOf()
         private var listFriend: MutableList<FriendRequest> = mutableListOf()
         private lateinit var context: Context
-    private lateinit var onClickRequestFriendListener: OnClickRequestFriendListener
-    private lateinit var onClickFriendListener: OnClickFriendListener
+        private lateinit var onClickRequestFriendListener: OnClickRequestFriendListener
+        private lateinit var onClickFriendListener: OnClickFriendListener
+
+        private var listMessagesOffline: List<User_db> = mutableListOf()
+        private lateinit var onClickOfflineFriend: OnClickOfflineFriendListener
 
     }
 
@@ -50,6 +55,10 @@ class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     interface OnClickFriendListener {
         fun onClickFriend(user: User, conversationId: String)
+    }
+
+    interface OnClickOfflineFriendListener {
+        fun onClickOfflineFriend(user: User_db)
     }
 
     // Method to update the adapter data
@@ -69,20 +78,32 @@ class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         notifyDataSetChanged()
     }
 
+    @SuppressLint("NotifyDataSetChanged")
+    fun offlineMode(listMessages: List<User_db>, onClickOfflineFriendListener: OnClickOfflineFriendListener){
+        listMessagesOffline = listMessages
+        onClickOfflineFriend = onClickOfflineFriendListener
+        notifyDataSetChanged()
+    }
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun clearMessagesOffline(){
+        listMessagesOffline  = emptyList()
+        notifyDataSetChanged()
+    }
+
 
     override fun getItemViewType(position: Int): Int {
 
-        //val friendRequest: FriendRequest = listFriend.find { it.receiverId == idCurrentUser || it.senderId == idCurrentUser }!!
+        if (!listFriend.isEmpty()){
+            val friendRequest = listFriend[position]
 
-        val friendRequest = listFriend[position]
-
-        Log.d("TAG", "getItemViewType: 2 " + friendRequest?.requestId + " " + friendRequest.status)
-
-        //listFriend[listMessages.get(position).uid.toString()].toString().toBoolean()
-        return if (friendRequest?.status == true) {
-            VIEW_TYPE_FRIEND
-        } else {
-            VIEW_TYPE_REQUEST
+            return if (friendRequest?.status == true) {
+                VIEW_TYPE_FRIEND
+            } else {
+                VIEW_TYPE_REQUEST
+            }
+        }else{
+            return VIEW_TYPE_FRIEND
         }
 
     }
@@ -106,36 +127,31 @@ class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val positionUser = position;
-        //var user: User;
 
-        Log.d("TAG", "listMessages.size: "+listMessages.size)
-        Log.d("TAG", "listFriend.size: "+listFriend.size)
-
-        if (!listMessages.isEmpty()){
-
+        if (!listMessagesOffline.isEmpty()) {
+            Log.d("TAG", "onBindViewHolder: Offline")
+            (holder as FriendViewHolder).bind(listMessagesOffline[positionUser], onClickOfflineFriend)
+        } else if (!listMessages.isEmpty()) {
             var user = listMessages[positionUser]
-            //Log.d("TAG", "getItemViewType: "+user.name)
-
             when (holder.itemViewType) {
-                //        fun bind( idCurrentUser: String, user: User, allConvs: List<Conversation>, context: Context) {
                 VIEW_TYPE_FRIEND -> {
-                    //user = listMessages[positionUser]
-                    (holder as FriendViewHolder).bind( idCurrentUser, user, allConvs, context, onClickFriendListener)
+                    Log.d("TAG", "onBindViewHolder: Online")
+                    (holder as FriendViewHolder).bind(idCurrentUser, user, allConvs, onClickFriendListener)
                 }
                 VIEW_TYPE_REQUEST -> {
-                    //user = listFriend
                     (holder as RequestFriendViewHolder).bind(user, context, onClickRequestFriendListener)
                 }
             }
-
         }
-
-
 
     }
 
     override fun getItemCount(): Int {
-        return listFriend.size
+        if (listMessagesOffline.isEmpty()){
+            return listFriend.size
+        }else{
+            return listMessagesOffline.size
+        }
     }
 
     class FriendViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -150,7 +166,7 @@ class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         val readStatus: ImageView = itemView.findViewById(R.id.read_status)
         val linearFriend: ConstraintLayout = itemView.findViewById(R.id.linear_friend)
 
-        fun bind( idCurrentUser: String, user: User, allConvs: List<Conversation>, context: Context, onClickFriendListener: OnClickFriendListener) {
+        fun bind( idCurrentUser: String, user: User, allConvs: List<Conversation>, onClickFriendListener: OnClickFriendListener) {
             if (user.img.toInt()==0){
                 imgProfile.setImageResource(R.drawable.user1)
             }else{
@@ -182,6 +198,33 @@ class AdapterMessanger(): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
             linearFriend.setOnClickListener {
                 onClickFriendListener.onClickFriend(user, conv?.conversationId.toString())
+            }
+
+            unreadCount.setText("2")
+            unreadBb.visibility = View.GONE
+            readStatus.visibility = View.GONE
+
+        }
+
+        fun bind(user: User_db, onClickOfflineFriendListener: OnClickOfflineFriendListener) {
+            if (user.img.toInt()==0){
+                imgProfile.setImageResource(R.drawable.user1)
+            }else{
+                imgProfile.setImageResource(user.img.toInt())
+            }
+
+            tvName.setText(user.name)
+
+
+            if (user.lastMessageText.isEmpty()){
+                tvLastMessage.setText("New friend.")
+            }else{
+                tvLastMessage.setText(user.lastMessageText)
+                tvLastTime.setText(dateFormat.format(user.messageTimestamp))
+            }
+
+            linearFriend.setOnClickListener {
+                onClickOfflineFriendListener.onClickOfflineFriend(user)
             }
 
             unreadCount.setText("2")

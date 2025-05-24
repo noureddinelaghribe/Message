@@ -2,6 +2,7 @@ package com.noureddine.kotlin2.activity
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -17,8 +18,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.room.Room
 import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.search.SearchBar
 import com.google.android.material.search.SearchView
@@ -31,25 +35,37 @@ import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.noureddine.kotlin2.Adapter.AdapterMessanger
 import com.noureddine.kotlin2.Adapter.AdapterMessanger.OnClickFriendListener
+import com.noureddine.kotlin2.Adapter.AdapterMessanger.OnClickOfflineFriendListener
 import com.noureddine.kotlin2.Adapter.AdapterMessanger.OnClickRequestFriendListener
 import com.noureddine.kotlin2.Adapter.AdapterMessangerSearch
+import com.noureddine.kotlin2.Database.AppDatabase
+import com.noureddine.kotlin2.model.Participant_db
 import com.noureddine.kotlin2.model.FriendRequest
 import com.noureddine.kotlin2.model.Notification
 import com.noureddine.kotlin2.model.User
 import com.noureddine.kotlin2.R
 import com.noureddine.kotlin2.ViewModel.MyViewModel
 import com.noureddine.kotlin2.model.Conversation
+import com.noureddine.kotlin2.model.Conversation_db
 import com.noureddine.kotlin2.model.Message
+import com.noureddine.kotlin2.model.Message_db
+import com.noureddine.kotlin2.model.User_db
+import com.noureddine.kotlin2.utel.AppConstants.DATABASE_NAME
 import com.noureddine.kotlin2.utel.NotificationManagerMessage
+import com.noureddine.kotlin2.utel.SharedPreferencesManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 
-class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, OnClickRequestFriendListener, OnClickFriendListener{
+class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, OnClickRequestFriendListener, OnClickFriendListener, OnClickOfflineFriendListener{
 
     lateinit var recyclerView: RecyclerView
     lateinit var searchView: SearchView
     lateinit var searchBar: SearchBar
     lateinit var recyclerViewSearch: RecyclerView
     lateinit var adapterMessanger: AdapterMessanger
+//    lateinit var adapterMessangerOfflineMode: AdapterMessangerOfflineMode
     lateinit var adapterMessangerSearch: AdapterMessangerSearch
     var listMessages: MutableList<User> = mutableListOf()
     var listMessagesSearch: MutableList<User> = mutableListOf()
@@ -66,6 +82,9 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
     var listAllUsers: MutableList<User> = mutableListOf()
 
     lateinit var viewModel: MyViewModel
+    lateinit var prefsManager: SharedPreferencesManager
+    lateinit var textOfflineMode: TextView
+
 
 
     @SuppressLint("MissingInflatedId")
@@ -84,6 +103,7 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
         searchBar = findViewById<SearchBar>(R.id.searchBar)
         recyclerViewSearch = findViewById<RecyclerView>(R.id.recyclerViewSearch)
         imgProfile = findViewById(R.id.profile)
+        textOfflineMode = findViewById(R.id.OfflineMode)
 
         recyclerView.setHasFixedSize(true)
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -98,180 +118,10 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
 
         viewModel = ViewModelProvider(this).get(MyViewModel::class.java)
 
+        prefsManager = SharedPreferencesManager(this)
 
-        //load current user
-//        database.child("users").child(auth.uid.toString()).get().addOnSuccessListener { dataSnapshot ->
-//
-//            val user = dataSnapshot.getValue(User::class.java)
-//            if (user != null) {
-//                if (user.uid.toString().equals(auth.uid.toString())){
-//                    currentUser = user
-//                }
-//            }
-//
-//            if (currentUser.img.toInt()==0){
-//                imgProfile.setImageResource(R.drawable.user1)
-//            }else{
-//                Log.d(TAG, "onCreate: load curent user")
-//                imgProfile.setImageResource(currentUser.img.toLong().toInt())
-//            }
-//
-//            //load uid friends
-//            database.child("friends").addValueEventListener(object : ValueEventListener{
-//                override fun onDataChange(snapshot: DataSnapshot) {
-//                    listFriend.clear()
-//                    for (child in snapshot.children) {
-//                        val friendRequest = child.getValue(FriendRequest::class.java)
-//                        if(friendRequest != null){
-//                            if( ( (friendRequest.receiverId.equals(currentUser.uid) || (friendRequest.senderId.equals(currentUser.uid))) && ((friendRequest.status == true)) )
-//                                || ( friendRequest.receiverId.equals(currentUser.uid) && friendRequest.status == false ) ){
-//                                listFriend.add(friendRequest)
-//                                Log.d(TAG, "onDataChange: listFriend.add(friendRequest) "+friendRequest.requestId+" "+friendRequest.status)
-//                            }else if( (friendRequest.receiverId.equals(currentUser.uid) || (friendRequest.senderId.equals(currentUser.uid))) && ((friendRequest.status == false)) ){
-//                                //listFriend.add(friendRequest)
-//                                listFriendSend.add(friendRequest)
-//                                Log.d(TAG, "onDataChange: listFriendSend.add(friendRequest) "+friendRequest.requestId+" "+friendRequest.status)
-//
-//                            }
-//                        }
-//
-//                    }
-//
-//
-//                    Log.d(TAG, "performSearch: listFriendSend.size "+listFriendSend.size)
-//                    setupSearchBar()
-//
-//
-//                    database.child("users").addValueEventListener(object : ValueEventListener{
-//                        override fun onDataChange(snapshot: DataSnapshot) {
-//                            listMessages.clear()
-//                            for (userSnapshot in snapshot.children){
-//                                val user = userSnapshot.getValue(User::class.java)
-//                                if (user != null) {
-//                                    if (!user.uid.toString().equals(auth.uid.toString())){
-//                                        if (listFriend.any { it.receiverId == user.uid || it.senderId == user.uid}){
-//                                            listMessages.add(user)
-//                                        }
-//                                    }
-//
-//                                }
-//                            }
-//
-//
-//                            Log.d("TAG", "MainActivity 1 listMessages.size: "+ listMessages.size)
-//                            Log.d("TAG", "MainActivity 1 listFriend.size: "+ listFriend.size)
-//
-//                            adapterMessanger.updateData( currentUser.uid.toString(), listMessages, allConvs, listFriend, this@MainActivity, this@MainActivity, this@MainActivity)
-//
-//                        }
-//
-//                        override fun onCancelled(error: DatabaseError) {
-//
-//                        }
-//                    })
-//
-//
-//                        //load data coversation
-//                    database.child("conversations").addValueEventListener(object : ValueEventListener {
-//                            override fun onDataChange(snapshot: DataSnapshot) {
-//                                allConvs.clear()
-//                                Toast.makeText(this@MainActivity,"conversations", Toast.LENGTH_SHORT).show()
-//
-//                                for (child in snapshot.children) {
-//                                    val conv = child.getValue(Conversation::class.java)
-//                                    if (conv?.participants?.contains(currentUser.uid.toString()) == true){
-//                                        conv?.let {
-//                                            allConvs.add(it)
-//
-//                                            if(!it.notify){
-//                                                val other = it.participants.first { it != currentUser.uid.toString() }
-//                                                Log.d(TAG, "onDataChange: other "+other)
-//
-//                                                val sortedMessages: MutableList<Message> = it.messages.values.toMutableList()
-//                                                sortedMessages.sortByDescending { it.timestamp }
-//
-//                                                val lastEntry: Message? = sortedMessages.firstOrNull()
-//
-//                                                val isReceiver = lastEntry?.senderId != other
-//                                                Log.d(TAG, "onDataChange: ${isReceiver} "+lastEntry?.senderId+" "+lastEntry?.text)
-//                                                if (isReceiver){
-//                                                    database.child("users").child(other).get().addOnSuccessListener { dataSnapshot ->
-//                                                        val user = dataSnapshot.getValue(User::class.java)
-//                                                        if (user != null) {
-//                                                            val notificationManagerMessage = NotificationManagerMessage(user.notificationId, this@MainActivity)
-//                                                            notificationManagerMessage.createCustomNotification( this@MainActivity, Notification( it, user))
-//                                                            database.child("conversations").child(it .conversationId).child("notify").setValue(true)
-//                                                        }
-//                                                    }
-//                                                }
-//                                            }
-//
-//                                        }
-//                                    }
-//                                }
-//
-//                                allConvs.sortByDescending { it.lastMessageTimestamp }
-//
-//                                // استخراج قائمة معرفات المستخدمين بترتيب ظهورهم في الرسائل
-//                                val orderedUserIds = allConvs.map { it.participants.filter { it != currentUser.uid }.get(0) }.distinct() // لإزالة التكرار
-//
-//                                // إنشاء خريطة تربط كل معرف بترتيبه
-//                                val userIdToOrder = mutableMapOf<String, Int>()
-//                                orderedUserIds.forEachIndexed { index, userId ->
-//                                    userIdToOrder[userId] = index
-//                                }
-//
-//                                // ترتيب المستخدمين حسب ترتيب ظهورهم في الرسائل
-//                                val sortedUsers = listMessages.sortedBy { user ->
-//                                    // إذا لم يكن المعرف موجودًا في الرسائل، ضعه في النهاية
-//                                    userIdToOrder[user.uid] ?: Int.MAX_VALUE
-//                                }
-//
-//                                Log.d("TAG", "MainActivity 2 listMessages.size: "+ listMessages.size)
-//                                Log.d("TAG", "MainActivity 2 listFriend.size: "+ listFriend.size)
-//
-//                                adapterMessanger.updateData( currentUser.uid.toString(), sortedUsers, allConvs, listFriend, this@MainActivity, this@MainActivity, this@MainActivity)
-//
-//
-//                            }
-//
-//                            override fun onCancelled(error: DatabaseError) {
-//                                Log.e("AdapterMessanger", "Could not read conversations", error.toException())
-//                            }
-//                        })
-//
-//                }
-//
-//                override fun onCancelled(error: DatabaseError) {}
-//
-//            })
-//
-//
-//
-//
-//
-//
-//            //load all users
-//            database.child("users").get().addOnSuccessListener { dataSnapshot ->
-//                listAllUsers.clear()
-//                for (userSnapshot in dataSnapshot.children){
-//                    val user = userSnapshot.getValue(User::class.java)
-//                    if (user != null) {
-//                        if (!user.uid.toString().equals(auth.uid.toString())){
-//                            listAllUsers.add(user)
-//                        }
-//                    }
-//                }
-//            }
-//
-//
-//        }
-
-
-        loadCurrentUser()
 
         listenToConnection()
-
 
 
 
@@ -285,6 +135,7 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
             if (user != null) {
                 if (user.uid.toString().equals(auth.uid.toString())){
                     currentUser = user
+                    prefsManager.saveUser(user)
                 }
             }
             if (currentUser.img.toInt()==0){
@@ -359,9 +210,18 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
                     if (conv?.participants?.contains(currentUser.uid.toString()) == true){
                         conv?.let {
                             allConvs.add(it)
-                            viewModel.insertConversation(it)
+
+                            val other =  it.participants.filter { it != currentUser.uid }.get(0)
+
+                            lifecycleScope.launch {
+                                val userId = getUserIdByUid(other).toLong()
+                                var conversationId = getConversationIdByUid(it.conversationId).toLong()
+                                insertParticipant(userId,conversationId)
+                                insertMessages(userId, conversationId, it.messages)
+                            }
+
                             if(!it.notify){
-                                val other = it.participants.first { it != currentUser.uid.toString() }
+                                //val other = it.participants.first { it != currentUser.uid.toString() }
                                 val sortedMessages: MutableList<Message> = it.messages.values.toMutableList()
                                 sortedMessages.sortByDescending { it.timestamp }
                                 val lastEntry: Message? = sortedMessages.firstOrNull()
@@ -418,10 +278,48 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
     }
 
 
+    fun offlineMode(){
+
+        loadCurrentUserOffline()
+        loadDataOffline()
+
+    }
+
+    fun loadCurrentUserOffline(){
+        currentUser = prefsManager.getUser()
+        if (currentUser.img.toInt()==0){
+            imgProfile.setImageResource(R.drawable.user1)
+        }else{
+            imgProfile.setImageResource(currentUser.img.toLong().toInt())
+        }
+    }
+
+
+    fun loadDataOffline(){
+
+        viewModel.allUsers.observe(this@MainActivity) { users ->
+            val sortedUsers = users
+            Log.e(TAG, "loadDataOffline: "+sortedUsers.size)
+            for (u in sortedUsers){
+                Log.e(TAG, "loadDataOffline: "+u.name+" "+u.lastMessageText)
+            }
+//            adapterMessangerOfflineMode = AdapterMessangerOfflineMode(users,this)
+//            recyclerView.adapter = adapterMessangerOfflineMode
+
+            adapterMessanger.offlineMode(sortedUsers,this@MainActivity)
+
+        }
 
 
 
+    }
 
+    fun clearDB(){
+        viewModel.clearUsers()
+        viewModel.clearConversations()
+        viewModel.clearParticipants()
+        viewModel.clearMessages()
+    }
 
 
     override fun onBackPressed() {
@@ -517,24 +415,24 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
     }
 
 
-    fun loadListFriend(uid : String){
-        database.child("friends").child(uid).addValueEventListener(object : ValueEventListener{
-            override fun onDataChange(snapshot: DataSnapshot) {
-                for (child in snapshot.children) {
-                    val friendRequest = child.getValue(FriendRequest::class.java)
-                    if(friendRequest != null){
-                        val fk = friendRequest.receiverId
-                        val fv = friendRequest.status
-                        listFriend.add(friendRequest)
-                        Log.d(TAG, "onDataChangeFriends: "+fk+" "+fv)
-                    }
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) {}
-
-        })
-    }
+//    fun loadListFriend(uid : String){
+//        database.child("friends").child(uid).addValueEventListener(object : ValueEventListener{
+//            override fun onDataChange(snapshot: DataSnapshot) {
+//                for (child in snapshot.children) {
+//                    val friendRequest = child.getValue(FriendRequest::class.java)
+//                    if(friendRequest != null){
+//                        val fk = friendRequest.receiverId
+//                        val fv = friendRequest.status
+//                        listFriend.add(friendRequest)
+//                        Log.d(TAG, "onDataChangeFriends: "+fk+" "+fv)
+//                    }
+//                }
+//            }
+//
+//            override fun onCancelled(error: DatabaseError) {}
+//
+//        })
+//    }
 
 
     fun addFriend(idUser: String){
@@ -565,23 +463,30 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
     }
 
 
-    fun listenToConnection() {
+    fun listenToConnection(): Boolean{
         // الحصول على مسار حالة الاتصال
-        val connectedRef = FirebaseDatabase
-            .getInstance()
-            .getReference(".info/connected")  // مسار خاص بحالة الاتصال :contentReference[oaicite:0]{index=0}
+        val connectedRef = FirebaseDatabase.getInstance().getReference(".info/connected")  // مسار خاص بحالة الاتصال :contentReference[oaicite:0]{index=0}
+
+        val connected = false
 
         // إضافة مستمع لحظة بلحظة
         connectedRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 // استخراج القيمة المنطقية؛ إذا لم تكن موجودة نعتبرها false :contentReference[oaicite:1]{index=1}
-                val connected = snapshot.getValue(Boolean::class.java) ?: false
+                val connected = snapshot.getValue(Boolean::class.java) ?: true
                 if (connected) {
-                    Log.d("Presence", "متصل بخادم Firebase")  // حالة الاتصال true :contentReference[oaicite:2]{index=2}
+                    Log.d("Presence", "متصل بخادم Firebase")
+                    //onlineMode()
                     setStateUser(true)
+                    clearDB()
+                    loadCurrentUser()
+                    adapterMessanger.clearMessagesOffline()
+                    textOfflineMode.visibility = View.GONE
                 } else {
-                    Log.d("Presence", "غير متصل بخادم Firebase")  // حالة الاتصال false :contentReference[oaicite:3]{index=3}
+                    Log.d("Presence", "غير متصل بخادم Firebase")
                     setStateUser(false)
+                    offlineMode()
+                    textOfflineMode.visibility = View.VISIBLE
                 }
             }
 
@@ -590,6 +495,8 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
                 Log.w("Presence", "فشل الاستماع لحالة الاتصال", error.toException())
             }
         })
+
+        return connected
     }
 
 
@@ -618,18 +525,72 @@ class MainActivity : AppCompatActivity(), AdapterMessangerSearch.ClickListener, 
         deleteFriend(idUser)
     }
 
+
+    override fun onClickOfflineFriend(user: User_db) {
+
+        Log.d(TAG, "onClickOfflineFriend")
+
+        Log.d(TAG, "onClickFriend: "+user.name)
+
+        Toast.makeText(this,"Offline Mode", Toast.LENGTH_SHORT).show()
+
+//        var  i = Intent(this, ChatActivity::class.java)
+//            .putExtra("userDb",user)
+//            .putExtra("idUserSender",currentUser.uid)
+//        startActivity(i)
+
+    }
+
+
     override fun onClickFriend(user: User, conversationId: String) {
+
+        Log.d(TAG, "onClickFriend")
 
         Log.d(TAG, "onClickFriend: "+user.name)
         Log.d(TAG, "onClickFriend: "+currentUser.uid)
         Log.d(TAG, "onClickFriend: "+conversationId)
 
-        var  i = Intent(this, ChatActivity::class.java)
-            .putExtra("user",user)
-            .putExtra("idUserSender",currentUser.uid)
-            .putExtra("conversationId",conversationId)
-        startActivity(i)
+        Toast.makeText(this,"Online Mode", Toast.LENGTH_SHORT).show()
+
+//        var  i = Intent(this, ChatActivity::class.java)
+//            .putExtra("user",user)
+//            .putExtra("idUserSender",currentUser.uid)
+//            .putExtra("conversationId",conversationId)
+//        startActivity(i)
+
     }
+
+
+    suspend fun getUserIdByUid(uid: String): String {
+        return viewModel.getUserIdByUid(uid).toString()
+    }
+
+    suspend fun getConversationIdByUid(uid: String): String {
+        var conversationId = viewModel.getConversationIdByUid(uid)
+        Log.d(TAG, "getConversationIdByUid conversationId 1 : "+conversationId)
+        if (conversationId == null) {
+            Log.d(TAG, "getConversationIdByUid conversationId 2 : null "+uid)
+            val v = viewModel.insertConversation(Conversation_db(uid))
+            Log.d(TAG, "getConversationIdByUid conversationId  : "+v)
+            conversationId = viewModel.getConversationIdByUid(uid)
+            Log.d(TAG, "getConversationIdByUid conversationId 3 : "+conversationId)
+        }
+        Log.d(TAG, "getConversationIdByUid conversationId 4 : "+conversationId)
+        return conversationId.toString()
+    }
+
+    fun insertParticipant(userId: Long, conversationId: Long) {
+        viewModel.insertParticipant(Participant_db(conversationId, userId))
+    }
+
+    suspend fun insertMessages(userId: Long, conversationId: Long, messages: Map<String, Message>) {
+        for ((_,message) in messages) {
+            viewModel.insertMessage(Message_db(conversationId, userId, message.text, message.timestamp, message.read, if (message.senderId == currentUser.uid) true else false))
+        }
+    }
+
+
+
 
 
 }

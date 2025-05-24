@@ -10,7 +10,7 @@ import com.noureddine.kotlin2.utel.AppConstants.TABEL_USER
 class User: Parcelable {
 
     @PrimaryKey(autoGenerate = true)
-    var id: Int = 0
+    var id: Long = 0
 
     var uid: String = ""
     var name: String = ""
@@ -38,6 +38,13 @@ class User: Parcelable {
         this.notificationId = notificationId
         this.email = email
         this.state = state
+    }
+
+    constructor(uid: String, name: String, email: String, img: Long) :this(){
+        this.uid = uid
+        this.name = name
+        this.email = email
+        this.img = img
     }
 
 

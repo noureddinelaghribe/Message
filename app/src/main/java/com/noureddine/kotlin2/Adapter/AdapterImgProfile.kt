@@ -11,7 +11,8 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.imageview.ShapeableImageView
 import com.noureddine.kotlin2.R
 
-class AdapterImgProfile(val images: List<Int>, val onImageClickListener: OnImageClickListener): RecyclerView.Adapter<AdapterImgProfile.ImageViewHolder>() {
+class AdapterImgProfile(val images: List<Int>, val onImageClickListener: OnImageClickListener)
+    : RecyclerView.Adapter<AdapterImgProfile.ImageViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AdapterImgProfile.ImageViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_img_user, parent, false)
         return ImageViewHolder(view)

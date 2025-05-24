@@ -8,12 +8,13 @@ import com.noureddine.kotlin2.utel.Converters
 import android.os.Parcel
 import android.os.Parcelable
 
-@Entity(tableName = TABEL_CONVERSATION)
-@TypeConverters(Converters::class)
-@androidx.annotation.Keep
+//@Entity(tableName = TABEL_CONVERSATION)
+//@TypeConverters(Converters::class)
+//@androidx.annotation.Keep
 class Conversation : Parcelable {
-    @PrimaryKey(autoGenerate = true)
-    var id: Int = 0
+    //@PrimaryKey(autoGenerate = true)
+    //var id: Int = 0
+
     var conversationId: String = ""
     var participants: List<String> = emptyList()
     var lastMessage: String = ""

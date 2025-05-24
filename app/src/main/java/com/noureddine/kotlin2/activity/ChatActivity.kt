@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
@@ -25,10 +26,14 @@ import com.noureddine.kotlin2.Adapter.AdapterConversation
 import com.noureddine.kotlin2.Adapter.AdapterMessanger
 import com.noureddine.kotlin2.model.User
 import com.noureddine.kotlin2.R
+import com.noureddine.kotlin2.ViewModel.MyViewModel
 import com.noureddine.kotlin2.activity.MainActivity
 import com.noureddine.kotlin2.model.Conversation
 import com.noureddine.kotlin2.model.Message
+import com.noureddine.kotlin2.model.User_db
 import com.noureddine.kotlin2.utel.NotificationManagerMessage
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class ChatActivity : AppCompatActivity() {
 
@@ -44,11 +49,13 @@ class ChatActivity : AppCompatActivity() {
     lateinit var btnSend: ImageButton
     lateinit var extrasIntent : Intent
     lateinit var currentUser: User
+    lateinit var currentUserOffline: User_db
     lateinit var idUserSender: String
     var conversationId: String = ""
     lateinit var database: DatabaseReference
     var listMessages: MutableList<Message> = mutableListOf()
     lateinit var adapterConversation: AdapterConversation
+    lateinit var viewModel: MyViewModel
 
 
 
@@ -81,52 +88,9 @@ class ChatActivity : AppCompatActivity() {
         recyclerView.setHasFixedSize(true)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Safe way to handle Parcelable extra
-        val user = extrasIntent.getParcelableExtra<User>("user")
-        if (user != null) {
-            currentUser = user
-        } else {
-            Log.d("TAG", "onCreate: null user")
-            // Handle null case (finish activity, show error, etc.)
-            finish()
-            return
-        }
+        viewModel = ViewModelProvider(this).get(MyViewModel::class.java)
 
-//        if (extrasIntent.getParcelableExtra("user") ?: User != null){
-//            currentUser = (extrasIntent.getParcelableExtra("user") ?: User) as User
-//        }else{
-//            Log.d("TAG", "onCreate: null user")
-//        }
-
-        if (extrasIntent.getStringExtra("idUserSender") != null){
-            idUserSender = extrasIntent.getStringExtra("idUserSender").toString()
-        }else{
-            Log.d("TAG", "onCreate: null idUserSender")
-        }
-
-        if (extrasIntent.getStringExtra("conversationId") != null){
-            conversationId = extrasIntent.getStringExtra("conversationId").toString()
-        }else{
-            Log.d("TAG", "onCreate: null conversationId")
-        }
-
-        if (currentUser.img.toInt()==0){
-            imgProfile.setImageResource(R.drawable.user1)
-        }else{
-            imgProfile.setImageResource(currentUser.img.toInt())
-        }
-
-        tvname.setText(currentUser.name)
-
-        if (currentUser.state){
-            tvstatus.setText("Online")
-            tvstatus.setTextColor(ContextCompat.getColor(this, R.color.Green))
-        }else{
-            tvstatus.setText("Offline")
-            tvstatus.setTextColor(ContextCompat.getColor(this, R.color.black))
-        }
-
-
+        extraData()
 
         if (!conversationId.isEmpty()){
 
@@ -143,13 +107,13 @@ class ChatActivity : AppCompatActivity() {
 
                         //Log.e("ChatActivity","Msg "+ child.key)
 
-                    }
+                        adapterConversation = AdapterConversation(idUserSender,listMessages)
+                        recyclerView.adapter = adapterConversation
 
-                    adapterConversation = AdapterConversation(idUserSender,listMessages)
-                    recyclerView.adapter = adapterConversation
+                        if (adapterConversation != null && adapterConversation.itemCount > 0) {
+                            recyclerView.smoothScrollToPosition(adapterConversation.itemCount - 1)
+                        }
 
-                    if (adapterConversation != null && adapterConversation.itemCount > 0) {
-                        recyclerView.smoothScrollToPosition(adapterConversation.itemCount - 1)
                     }
 
                 }
@@ -158,6 +122,22 @@ class ChatActivity : AppCompatActivity() {
                     Log.e("ChatActivity", "Could not read conversations", error.toException())
                 }
             })
+
+        }else{
+
+            //load data from RoomDb
+
+            GlobalScope.launch {
+                listMessages = viewModel.getAllMessagesByUserId(currentUserOffline.id) as MutableList<Message>
+
+                adapterConversation = AdapterConversation(idUserSender,listMessages)
+                recyclerView.adapter = adapterConversation
+
+                if (adapterConversation != null && adapterConversation.itemCount > 0) {
+                    recyclerView.smoothScrollToPosition(adapterConversation.itemCount - 1)
+                }
+
+            }
 
         }
 
@@ -221,4 +201,71 @@ class ChatActivity : AppCompatActivity() {
 
 
     }
+
+
+
+
+    fun extraData(){
+
+        // Safe way to handle Parcelable extra
+        val user = extrasIntent.getParcelableExtra<User>("user")!!
+
+        if (user != null) {
+
+            currentUser = extrasIntent.getParcelableExtra<User>("user")!!
+            loadCurrentUser(currentUser.name, currentUser.img.toInt(), currentUser.state)
+
+        } else {
+            val user = extrasIntent.getParcelableExtra<User_db>("userDb")
+            if (user != null){
+
+                currentUserOffline = extrasIntent.getParcelableExtra<User_db>("userDb")!!
+                loadCurrentUser(currentUserOffline.name, currentUserOffline.img.toInt(), false)
+
+            }else{
+                Log.d("TAG", "onCreate: null user")
+                finish()
+                return
+            }
+        }
+
+
+        if (extrasIntent.getStringExtra("idUserSender") != null){
+            idUserSender = extrasIntent.getStringExtra("idUserSender").toString()
+        }else{
+            Log.d("TAG", "onCreate: null idUserSender")
+        }
+
+        if (extrasIntent.getStringExtra("conversationId") != null){
+            conversationId = extrasIntent.getStringExtra("conversationId").toString()
+        }else{
+            Log.d("TAG", "onCreate: null conversationId")
+        }
+
+    }
+
+
+    fun loadCurrentUser(name: String, img: Int, status: Boolean){
+        if (img==0){
+            imgProfile.setImageResource(R.drawable.user1)
+        }else{
+            imgProfile.setImageResource(currentUser.img.toInt())
+        }
+
+        tvname.setText(name)
+
+        if (status){
+            tvstatus.setText("Online")
+            tvstatus.setTextColor(ContextCompat.getColor(this, R.color.Green))
+        }else{
+            tvstatus.setText("Offline")
+            tvstatus.setTextColor(ContextCompat.getColor(this, R.color.black))
+        }
+    }
+
+
+
+
+
+
 }

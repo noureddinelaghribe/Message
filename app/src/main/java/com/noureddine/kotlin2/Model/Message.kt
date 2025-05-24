@@ -2,10 +2,13 @@ package com.noureddine.kotlin2.model
 
 import android.os.Parcel
 import android.os.Parcelable
+import androidx.room.ColumnInfo
+import androidx.room.PrimaryKey
 
-@androidx.annotation.Keep
 class Message : Parcelable {
+
     var messageId: String = ""
+
     var senderId: String = ""
     var text: String = ""
     var timestamp: Long = 0L
@@ -20,6 +23,14 @@ class Message : Parcelable {
         this.timestamp = timestamp
         this.read = read
     }
+
+    constructor(senderId: String, text: String, timestamp: Long, read: Boolean) : this() {
+        this.senderId = senderId
+        this.text = text
+        this.timestamp = timestamp
+        this.read = read
+    }
+
 
     constructor(parcel: Parcel) : this() {
         messageId = parcel.readString() ?: ""
